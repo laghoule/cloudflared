@@ -355,5 +355,4 @@ helm test cloudflared -n cloudflared
 helm uninstall cloudflared -n cloudflared
 ```
 
-The tunnel and any routes remain managed on the Cloudflare side. Delete them
-from the Cloudflare dashboard if needed.
+The tunnel and any routes remain managed on the Cloudflare side. Delete them from the Cloudflare dashboard if needed.
