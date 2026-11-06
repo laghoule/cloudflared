@@ -18,18 +18,26 @@ whoever administers this repo (they can't be done from chart files alone):
    permissions*, select **"Read and write permissions"**. Do this *before* the
    first push/run — the release workflow needs it to push to the `gh-pages`
    branch and create releases using the default `GITHUB_TOKEN`.
-3. **First release:** push/merge a change to `main` that touches `charts/**`
-   (e.g. the initial commit), or manually trigger the **Release Charts**
-   workflow from the *Actions* tab (`workflow_dispatch`). This lets
-   `chart-releaser` create the `gh-pages` branch itself (as an orphan branch
-   containing `index.yaml` + the packaged `.tgz`) — **do not** create
-   `gh-pages` manually from the GitHub UI, or it won't be in the format
-   `chart-releaser` expects.
-4. **Enable GitHub Pages:** in *Settings → Pages*, set **Source** to
+3. **Create the `gh-pages` branch once:** `chart-releaser` v1.9+ fails with
+   `invalid reference: origin/gh-pages` when the branch does not exist. Create
+   an empty orphan branch from a local clone:
+
+   ```console
+   git checkout --orphan gh-pages
+   git rm -rf . >/dev/null
+   git commit --allow-empty -m "Initialize gh-pages"
+   git push origin gh-pages
+   git checkout main
+   ```
+
+4. **First release:** manually trigger the **Release Charts** workflow from the
+   *Actions* tab (`workflow_dispatch`), or push a change under `charts/**`.
+   `chart-releaser` then creates the release and tag, and writes `index.yaml`
+   to `gh-pages`.
+5. **Enable GitHub Pages:** in *Settings → Pages*, set **Source** to
    **"Deploy from a branch"**, branch **`gh-pages`**, folder **`/ (root)`**.
-   (This option only appears once `gh-pages` exists, i.e. after step 3 ran
-   successfully.)
-5. The chart repository is then served at
+   (This option only appears once `gh-pages` exists, i.e. after step 3.)
+6. The chart repository is then served at
    `https://laghoule.github.io/cloudflared/`.
 
 The repository name and Pages URL above assume this repository is named

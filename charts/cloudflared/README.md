@@ -135,8 +135,9 @@ UUID, the path to the credentials mounted in the pod, and the ingress rules.
 ## Metrics and monitoring
 
 cloudflared exposes its Prometheus metrics on `0.0.0.0:2000/metrics`
-(configurable through `metrics.port`). The `/ready` endpoint is used by the
-Kubernetes probes.
+(configurable through `metrics.port`). The startup and readiness probes use
+`/ready`, which reflects the connection to the Cloudflare edge. The liveness
+probe uses `/metrics`, so a Cloudflare-side outage does not restart the pods.
 
 ```yaml
 metrics:

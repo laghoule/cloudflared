@@ -126,7 +126,8 @@ config:
   tunnelID: ""
   # -- Full config.yaml content. Generated automatically when empty.
   configFile: ""
-  # -- Tunnel ingress rules. The last rule must be a catch-all.
+  # -- Tunnel ingress rules. The last rule must be a catch-all (no hostname),
+  # otherwise the chart fails to render.
   # Example:
   # ingress:
   #   - hostname: app.example.com

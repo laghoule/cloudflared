@@ -16,6 +16,10 @@ data:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.config.ingress }}
+    {{- $last := index . (sub (len .) 1) }}
+    {{- if $last.hostname }}
+    {{- fail "cloudflared: the last config.ingress rule must be a catch-all (no hostname), for example {service: http_status:404}" }}
+    {{- end }}
     ingress:
     {{- toYaml . | nindent 6 }}
     {{- end }}
