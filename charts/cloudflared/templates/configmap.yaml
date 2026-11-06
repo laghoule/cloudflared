@@ -1,0 +1,23 @@
+{{- if and (eq (include "cloudflared.mode" .) "config") (not .Values.config.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflared.fullname" . }}-config
+  labels:
+    {{- include "cloudflared.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- if .Values.config.configFile }}
+    {{- .Values.config.configFile | nindent 4 }}
+    {{- else }}
+    tunnel: {{ required "cloudflared: config.tunnelID is required when config.configFile is empty" .Values.config.tunnelID | quote }}
+    credentials-file: /etc/cloudflared/creds/{{ .Values.config.credentials.key }}
+    {{- with .Values.config.extraConfig }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.config.ingress }}
+    ingress:
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
+{{- end }}

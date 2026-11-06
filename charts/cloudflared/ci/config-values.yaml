@@ -1,0 +1,21 @@
+# chart-testing values for the locally managed (config.yaml) mode.
+#
+# The credentials are fake and the connector is scaled to zero: this exercises
+# the ConfigMap/Secret/ingress rendering without requiring a real tunnel.
+replicaCount: 0
+
+config:
+  enabled: true
+  tunnelID: "00000000-0000-0000-0000-000000000000"
+  credentials:
+    # Raw tunnel credentials JSON (not base64).
+    file: |
+      {"AccountTag":"00000000000000000000000000000000","TunnelSecret":"0000000000000000000000000000000000000000000000000000000000000000","TunnelID":"00000000-0000-0000-0000-000000000000"}
+  ingress:
+    - hostname: app.example.com
+      service: http://app.default.svc.cluster.local:80
+    - service: http_status:404
+
+# No connector pod is running, so the metrics connectivity test cannot pass.
+tests:
+  enabled: false

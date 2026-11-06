@@ -1,0 +1,17 @@
+{{- if .Values.grafana.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflared.fullname" . }}-grafana-dashboard
+  namespace: {{ .Values.grafana.dashboards.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "cloudflared.labels" . | nindent 4 }}
+    {{ .Values.grafana.dashboards.label }}: {{ .Values.grafana.dashboards.labelValue | quote }}
+  {{- with .Values.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  cloudflared.json: |-
+    {{- .Files.Get "dashboards/cloudflared.json" | nindent 4 }}
+{{- end }}

@@ -1,0 +1,13 @@
+# chart-testing values for the remotely managed (token) mode.
+#
+# CI has no Cloudflare credentials and runs on a throwaway kind cluster. The
+# connector is scaled to zero so the release can be installed and validated
+# without opening a real tunnel to Cloudflare.
+replicaCount: 0
+
+tunnel:
+  token: ci-placeholder-token
+
+# No connector pod is running, so the metrics connectivity test cannot pass.
+tests:
+  enabled: false

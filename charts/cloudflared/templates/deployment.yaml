@@ -1,0 +1,179 @@
+{{- $mode := include "cloudflared.mode" . -}}
+{{- if eq $mode "invalid" -}}
+{{- fail "cloudflared: configure either tunnel.token/tunnel.existingSecret (remote-managed) or config.enabled/config.existingConfigMap (locally-managed)" -}}
+{{- end -}}
+{{- if and (eq $mode "token") (or .Values.config.enabled .Values.config.existingConfigMap) -}}
+{{- fail "cloudflared: tunnel.token and config.enabled are mutually exclusive" -}}
+{{- end -}}
+{{- if eq $mode "config" -}}
+{{- if and (not .Values.config.credentials.file) (not .Values.config.credentials.existingSecret) -}}
+{{- fail "cloudflared: config.credentials.file or config.credentials.existingSecret is required in config mode" -}}
+{{- end -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudflared.fullname" . }}
+  labels:
+    {{- include "cloudflared.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "cloudflared.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if eq $mode "config" }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/credentials: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- else }}
+        checksum/token: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cloudflared.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cloudflared.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: cloudflared
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - cloudflared
+          args:
+            - tunnel
+            {{- if eq $mode "config" }}
+            - --config
+            - /etc/cloudflared/config/config.yaml
+            {{- end }}
+            - --no-autoupdate
+            {{- if .Values.metrics.enabled }}
+            - --metrics
+            - "0.0.0.0:{{ .Values.metrics.port }}"
+            {{- end }}
+            {{- with .Values.logLevel }}
+            - --loglevel
+            - {{ . }}
+            {{- end }}
+            {{- with .Values.protocol }}
+            - --protocol
+            - {{ . }}
+            {{- end }}
+            {{- with .Values.gracePeriod }}
+            - --grace-period
+            - {{ . }}
+            {{- end }}
+            - run
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or (eq $mode "token") .Values.extraEnv }}
+          env:
+            {{- if eq $mode "token" }}
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cloudflared.tokenSecretName" . }}
+                  key: {{ .Values.tunnel.tokenKey }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          {{- end }}
+          {{- if and .Values.probes.enabled .Values.metrics.enabled }}
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if or (eq $mode "config") .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if eq $mode "config" }}
+            - name: config
+              mountPath: /etc/cloudflared/config
+              readOnly: true
+            - name: credentials
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+      {{- if or (eq $mode "config") .Values.extraVolumes }}
+      volumes:
+        {{- if eq $mode "config" }}
+        - name: config
+          configMap:
+            name: {{ include "cloudflared.configMapName" . }}
+        - name: credentials
+          secret:
+            secretName: {{ include "cloudflared.credentialsSecretName" . }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

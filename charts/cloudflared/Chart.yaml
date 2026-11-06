@@ -1,0 +1,23 @@
+apiVersion: v2
+name: cloudflared
+description: Cloudflare Tunnel connector (cloudflared) with Prometheus metrics and a Grafana dashboard.
+type: application
+version: 0.1.0
+appVersion: "2026.10.7"
+kubeVersion: ">=1.23.0-0"
+home: https://github.com/cloudflare/cloudflared
+icon: https://www.cloudflare.com/favicon.ico
+sources:
+  - https://github.com/cloudflare/cloudflared
+keywords:
+  - cloudflare
+  - cloudflared
+  - tunnel
+  - argo-tunnel
+  - reverse-proxy
+maintainers:
+  - name: laghoule
+    email: pgauthier@nihilisme.ca
+    url: https://github.com/laghoule
+annotations:
+  artifacthub.io/license: GPL-3.0

@@ -1,0 +1,59 @@
+name: Release Charts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/**"
+      - "artifacthub-repo.yml"
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.1
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        with:
+          skip_existing: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      # Optional: only runs once artifacthub-repo.yml exists. See
+      # artifacthub-repo.yml.example and CONTRIBUTING.md.
+      - name: Publish artifacthub-repo.yml to gh-pages
+        run: |
+          set -euo pipefail
+          if [ ! -f artifacthub-repo.yml ]; then
+            echo "artifacthub-repo.yml not present; skipping Artifact Hub metadata"
+            exit 0
+          fi
+          git fetch origin gh-pages
+          git worktree add "$RUNNER_TEMP/gh-pages-tree" origin/gh-pages
+          cp artifacthub-repo.yml "$RUNNER_TEMP/gh-pages-tree/artifacthub-repo.yml"
+          cd "$RUNNER_TEMP/gh-pages-tree"
+          git add artifacthub-repo.yml
+          if git diff --cached --quiet; then
+            echo "artifacthub-repo.yml already up to date"
+          else
+            git commit -m "Publish artifacthub-repo.yml"
+            git push origin HEAD:gh-pages
+          fi

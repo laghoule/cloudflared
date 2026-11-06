@@ -1,0 +1,256 @@
+# Default values for the cloudflared chart.
+
+# -- Number of cloudflared replicas. Cloudflare recommends at least 2 replicas
+# for a highly available tunnel. Set to 0 to scale the connector down without
+# uninstalling the release.
+replicaCount: 2
+
+image:
+  # -- cloudflared image repository.
+  repository: cloudflare/cloudflared
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Image tag. Defaults to the chart appVersion when empty.
+  tag: ""
+
+# -- Image pull secrets.
+imagePullSecrets: []
+
+# -- Override the chart name.
+nameOverride: ""
+# -- Override the full resource name.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount.
+  create: true
+  # -- Mount the ServiceAccount token into pods. cloudflared does not need
+  # Kubernetes API access, so this is disabled by default.
+  automount: false
+  # -- ServiceAccount annotations.
+  annotations: {}
+  # -- ServiceAccount name. Generated from the fullname when empty.
+  name: ""
+
+# -- Additional pod annotations.
+podAnnotations: {}
+# -- Additional pod labels.
+podLabels: {}
+
+# -- Pod security context.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -- Container resources. Example:
+# resources:
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+#   limits:
+#     memory: 256Mi
+resources: {}
+
+# -- Node selector.
+nodeSelector: {}
+# -- Tolerations.
+tolerations: []
+# -- Affinity.
+affinity: {}
+# -- Topology spread constraints.
+topologySpreadConstraints: []
+# -- Pod priorityClassName.
+priorityClassName: ""
+
+# -- Kubernetes grace period. Must be greater than `gracePeriod`.
+terminationGracePeriodSeconds: 60
+
+# -- Deployment update strategy.
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# -- cloudflared log level: debug, info, warn, error, fatal.
+logLevel: info
+# -- Transport protocol to Cloudflare: auto, http2 or quic.
+protocol: auto
+# -- Grace period granted to in-flight connections on SIGTERM.
+gracePeriod: 30s
+
+# -- Extra arguments appended to the `run` command. Useful to pass a tunnel
+# name for a locally managed tunnel, for example.
+extraArgs: []
+# -- Additional environment variables.
+extraEnv: []
+# -- Additional environment variables from ConfigMaps/Secrets.
+extraEnvFrom: []
+# -- Additional volumes.
+extraVolumes: []
+# -- Additional volume mounts.
+extraVolumeMounts: []
+
+# Tunnel configuration.
+#
+# Two mutually exclusive modes are supported:
+#   * token  : tunnel managed from the Cloudflare dashboard (`tunnel.token` or
+#              `tunnel.existingSecret`).
+#   * config : locally managed tunnel (`config.enabled` or
+#              `config.existingConfigMap`), with credentials and ingress.
+tunnel:
+  # -- Token of a remotely managed tunnel. Leave empty in config mode.
+  token: ""
+  # -- Name of an existing Secret holding the token. Takes precedence over `token`.
+  existingSecret: ""
+  # -- Token key inside the Secret.
+  tokenKey: tunnelToken
+
+config:
+  # -- Enable locally managed tunnel mode (credentials + ingress).
+  enabled: false
+  # -- Use an existing ConfigMap containing the `config.yaml` key.
+  existingConfigMap: ""
+  # -- Tunnel UUID. Required when `configFile` is empty.
+  tunnelID: ""
+  # -- Full config.yaml content. Generated automatically when empty.
+  configFile: ""
+  # -- Tunnel ingress rules. The last rule must be a catch-all.
+  # Example:
+  # ingress:
+  #   - hostname: app.example.com
+  #     service: http://my-service.my-namespace.svc.cluster.local:80
+  #   - service: http_status:404
+  ingress: []
+  # -- Additional root configuration keys added to the generated config.yaml
+  # (originRequest, warp-routing, etc.).
+  extraConfig: {}
+  credentials:
+    # -- Raw tunnel credentials JSON (contents of <TUNNEL_ID>.json).
+    # The Secret is created with stringData: provide raw JSON, not base64.
+    file: ""
+    # -- Name of an existing Secret holding the credentials. Takes precedence over `file`.
+    existingSecret: ""
+    # -- Credentials key inside the Secret.
+    key: credentials.json
+
+# Prometheus metrics and monitoring integrations.
+metrics:
+  # -- Enable the metrics server (required for HTTP probes).
+  enabled: true
+  # -- Metrics server and /ready endpoint port.
+  port: 2000
+  service:
+    # -- Expose metrics through a Service.
+    enabled: true
+    # -- Metrics Service type.
+    type: ClusterIP
+    # -- Metrics Service annotations.
+    annotations: {}
+  serviceMonitor:
+    # -- Create a ServiceMonitor for the Prometheus operator.
+    enabled: false
+    # -- Scrape interval.
+    interval: 30s
+    # -- Scrape timeout.
+    scrapeTimeout: 10s
+    # -- Additional ServiceMonitor labels.
+    labels: {}
+    # -- Prometheus relabelings.
+    relabelings: []
+    # -- Prometheus metric relabelings.
+    metricRelabelings: []
+  prometheusRule:
+    # -- Create Prometheus alerting rules.
+    enabled: false
+    # -- Additional PrometheusRule labels.
+    labels: {}
+    # -- Additional PrometheusRule annotations.
+    annotations: {}
+    # -- Alerting rules. Fully overridable.
+    rules:
+      - alert: CloudflaredNoActiveConnection
+        expr: sum(cloudflared_tunnel_ha_connections) < 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: cloudflared has no active connection to Cloudflare
+          description: >-
+            No active HA connection has been reported for 5 minutes.
+            The tunnel is unavailable.
+
+      - alert: CloudflaredHighErrorRate
+        expr: >-
+          sum(rate(cloudflared_tunnel_request_errors[5m]))
+          /
+          clamp_min(sum(rate(cloudflared_tunnel_total_requests[5m])), 1e-9)
+          > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: High error rate on the cloudflared tunnel
+          description: >-
+            More than 5% of proxied requests are failing for 10 minutes.
+
+      - alert: CloudflaredHeartbeatRetries
+        expr: max(cloudflared_tunnel_timer_retries) > 3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: cloudflared is accumulating unacknowledged heartbeats
+          description: >-
+            The number of unacknowledged heartbeats has exceeded 3 for 10 minutes.
+
+# HTTP probes. They use /ready, which is only available when metrics are enabled.
+probes:
+  # -- Enable startup/readiness/liveness probes.
+  enabled: true
+  startup:
+    periodSeconds: 5
+    failureThreshold: 30
+  readiness:
+    periodSeconds: 10
+    failureThreshold: 3
+  liveness:
+    periodSeconds: 10
+    failureThreshold: 3
+
+# Helm test.
+tests:
+  # -- Create the `helm test` metrics connectivity check. Requires
+  # `metrics.enabled` and `metrics.service.enabled`.
+  enabled: true
+
+# Grafana integration (kube-prometheus-stack dashboard sidecar).
+grafana:
+  dashboards:
+    # -- Create a ConfigMap containing the Grafana dashboard.
+    enabled: true
+    # -- Label watched by the Grafana sidecar.
+    label: grafana_dashboard
+    # -- Label value.
+    labelValue: "1"
+    # -- ConfigMap namespace. Uses the release namespace when empty.
+    namespace: ""
+    # -- Dashboard ConfigMap annotations.
+    annotations: {}
+
+podDisruptionBudget:
+  # -- Create a PodDisruptionBudget when replicaCount > 1.
+  enabled: true
+  # -- Minimum number of available pods.
+  minAvailable: 1
