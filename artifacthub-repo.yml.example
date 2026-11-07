@@ -1,13 +1,4 @@
-# Optional Artifact Hub repository metadata.
-#
-# To publish the chart on https://artifacthub.io:
-#   1. Add the repository in the Artifact Hub control panel
-#      (kind "Helm charts", URL https://laghoule.github.io/cloudflared/).
-#   2. Copy this file to artifacthub-repo.yml.
-#   3. Replace repositoryID with the ID shown by Artifact Hub.
-#   4. Commit and push to main. The release workflow publishes the file to the
-#      gh-pages branch, where Artifact Hub looks for it.
-repositoryID: REPLACE_WITH_ARTIFACTHUB_REPOSITORY_ID
+repositoryID: cb249bfc-ac3c-46f3-a69c-e12dfd2a9e55
 owners:
   - name: laghoule
     email: pgauthier@nihilisme.ca
