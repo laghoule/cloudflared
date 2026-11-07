@@ -204,8 +204,7 @@ The dashboard includes:
 - traffic and errors by pod;
 - TCP/UDP sessions;
 - QUIC connectivity (RTT, lost packets);
-- heartbeats and edge locations;
-- Go runtime (goroutines, heap) and Prometheus scrape health.
+- heartbeats and edge locations.
 
 Available variables: Prometheus data source, `job`, `namespace` and `pod`. The
 metrics are filtered by the Prometheus `job` label, which is the Service name
