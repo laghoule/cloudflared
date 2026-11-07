@@ -5,6 +5,34 @@ entries:
       artifacthub.io/license: GPL-3.0
     apiVersion: v2
     appVersion: 2026.10.7
+    created: "2026-11-07T01:14:14.645131966Z"
+    description: Cloudflare Tunnel connector (cloudflared) with Prometheus metrics
+      and a Grafana dashboard.
+    digest: a8bda5e18584203b6bc35ed3783f3f5786ba7be82869459bfb0ff49568c8f948
+    home: https://github.com/cloudflare/cloudflared
+    icon: https://www.cloudflare.com/favicon.ico
+    keywords:
+    - cloudflare
+    - cloudflared
+    - tunnel
+    - argo-tunnel
+    - reverse-proxy
+    kubeVersion: '>=1.23.0-0'
+    maintainers:
+    - email: pgauthier@nihilisme.ca
+      name: laghoule
+      url: https://github.com/laghoule
+    name: cloudflared
+    sources:
+    - https://github.com/cloudflare/cloudflared
+    type: application
+    urls:
+    - https://github.com/laghoule/cloudflared/releases/download/cloudflared-0.1.2/cloudflared-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      artifacthub.io/license: GPL-3.0
+    apiVersion: v2
+    appVersion: 2026.10.7
     created: "2026-11-06T20:40:48.029376081Z"
     description: Cloudflare Tunnel connector (cloudflared) with Prometheus metrics
       and a Grafana dashboard.
@@ -57,4 +85,4 @@ entries:
     urls:
     - https://github.com/laghoule/cloudflared/releases/download/cloudflared-0.1.0/cloudflared-0.1.0.tgz
     version: 0.1.0
-generated: "2026-11-06T20:40:48.02939144Z"
+generated: "2026-11-07T01:14:14.645143011Z"
