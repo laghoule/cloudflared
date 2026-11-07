@@ -92,3 +92,27 @@ Name of the ConfigMap holding config.yaml.
 {{- define "cloudflared.configMapName" -}}
 {{- default (printf "%s-config" (include "cloudflared.fullname" .)) .Values.config.existingConfigMap }}
 {{- end }}
+
+{{/*
+Grafana dashboard UID, unique per release (Grafana limits UIDs to 40 characters).
+The default release name "cloudflared" yields "cloudflared-overview".
+*/}}
+{{- define "cloudflared.dashboardUID" -}}
+{{- $uid := printf "%s-overview" (include "cloudflared.fullname" .) -}}
+{{- if gt (len $uid) 40 -}}
+{{- printf "%s-%s" (trunc 31 $uid | trimSuffix "-") (sha256sum $uid | trunc 8) -}}
+{{- else -}}
+{{- $uid -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Grafana dashboard title, unique per release.
+*/}}
+{{- define "cloudflared.dashboardTitle" -}}
+{{- if eq (include "cloudflared.fullname" .) .Chart.Name -}}
+Cloudflared / Tunnel overview
+{{- else -}}
+Cloudflared / Tunnel overview ({{ include "cloudflared.fullname" . }})
+{{- end -}}
+{{- end }}

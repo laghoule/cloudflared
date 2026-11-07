@@ -164,6 +164,10 @@ installs three default alerts:
 - `CloudflaredHighErrorRate`: more than 5% failed requests for 10 minutes;
 - `CloudflaredHeartbeatRetries`: unacknowledged heartbeats for 10 minutes.
 
+The default rules aggregate by `namespace` and `service`, so each tunnel alerts
+independently and the alert names the affected tunnel. See
+[Multiple releases](#multiple-releases) when you run several tunnels.
+
 > HTTP probes require the metrics server. When `metrics.enabled=false`, the
 > probes are disabled automatically.
 
@@ -172,6 +176,16 @@ installs three default alerts:
 The **"Cloudflared / Tunnel overview"** dashboard is included in the chart at
 `dashboards/cloudflared.json`. It is embedded into a `ConfigMap` when
 `grafana.dashboards.enabled=true` (the default).
+
+The dashboard UID, title and `ConfigMap` key are derived from the release name,
+so several releases can ship their own dashboard without colliding in Grafana.
+A release named `cloudflared` gets the UID `cloudflared-overview` and the title
+`Cloudflared / Tunnel overview`; any other release `<name>` gets the UID
+`<name>-cloudflared-overview` and the title
+`Cloudflared / Tunnel overview (<name>-cloudflared)`. UIDs longer than 40
+characters (the Grafana limit) are truncated and suffixed with a short hash.
+When `metrics.serviceMonitor.enabled=true`, the `job` and `namespace` variables
+default to the release's metrics Service and namespace.
 
 The kube-prometheus-stack sidecar discovers it automatically through the
 `grafana_dashboard: "1"` label. If Grafana only watches a single namespace,
@@ -193,16 +207,50 @@ The dashboard includes:
 - heartbeats and edge locations;
 - Go runtime (goroutines, heap) and Prometheus scrape health.
 
-Available variables: Prometheus data source, `job`, `namespace` and `pod`.
+Available variables: Prometheus data source, `job`, `namespace` and `pod`. The
+metrics are filtered by the Prometheus `job` label, which is the Service name
+when scraping through the `ServiceMonitor`. Pick the matching `job` value if you
+scrape with another setup.
 
 To import it manually:
 
 ```bash
 kubectl -n monitoring get configmap cloudflared-grafana-dashboard \
-  -o jsonpath='{.data.cloudflared\.json}' > cloudflared.json
+  -o json | jq -r '.data | to_entries[0].value' > cloudflared.json
 ```
 
 Then in Grafana: **Dashboards → New → Import → Upload JSON**.
+
+## Multiple releases
+
+Several releases can run side by side, in the same namespace or in different
+ones. Every resource name is prefixed with the release name, and the Service,
+ServiceMonitor and PodDisruptionBudget select pods by `app.kubernetes.io/instance`.
+
+```bash
+helm install tunnel-a cloudflared-charts/cloudflared -n cloudflared \
+  --set tunnel.token='<TOKEN_A>' \
+  --set metrics.serviceMonitor.enabled=true
+
+helm install tunnel-b cloudflared-charts/cloudflared -n cloudflared \
+  --set tunnel.token='<TOKEN_B>' \
+  --set metrics.serviceMonitor.enabled=true \
+  --set metrics.prometheusRule.enabled=false
+```
+
+Keep in mind:
+
+- **Dashboards**: each release creates its own dashboard, with a distinct UID and
+  title. Set `grafana.dashboards.enabled=false` on the releases that do not need
+  one. A single dashboard can also cover every tunnel through its `job`,
+  `namespace` and `pod` variables.
+- **Alerts**: the default rules cover every cloudflared tunnel scraped by the
+  same Prometheus. Enable `metrics.prometheusRule` on **one** release only,
+  otherwise each alert is defined twice. If you override `rules`, keep the
+  `by (namespace, service)` aggregation so each tunnel is evaluated separately.
+- **Grafana namespace**: with `grafana.dashboards.namespace` set, all dashboards
+  land in that namespace. Their names stay unique because they include the
+  release name, but the release names must differ.
 
 ## Graceful shutdown and availability
 

@@ -179,24 +179,27 @@ metrics:
     labels: {}
     # -- Additional PrometheusRule annotations.
     annotations: {}
-    # -- Alerting rules. Fully overridable.
+    # -- Alerting rules. Fully overridable. The default rules aggregate by
+    # `namespace` and `service`, so one PrometheusRule covers every cloudflared
+    # release scraped by the same Prometheus: enable it on a single release.
     rules:
       - alert: CloudflaredNoActiveConnection
-        expr: sum(cloudflared_tunnel_ha_connections) < 1
+        expr: sum by (namespace, service) (cloudflared_tunnel_ha_connections) < 1
         for: 5m
         labels:
           severity: critical
         annotations:
           summary: cloudflared has no active connection to Cloudflare
           description: >-
-            No active HA connection has been reported for 5 minutes.
+            No active HA connection has been reported for 5 minutes on tunnel
+            {{ $labels.namespace }}/{{ $labels.service }}.
             The tunnel is unavailable.
 
       - alert: CloudflaredHighErrorRate
         expr: >-
-          sum(rate(cloudflared_tunnel_request_errors[5m]))
+          sum by (namespace, service) (rate(cloudflared_tunnel_request_errors[5m]))
           /
-          clamp_min(sum(rate(cloudflared_tunnel_total_requests[5m])), 1e-9)
+          clamp_min(sum by (namespace, service) (rate(cloudflared_tunnel_total_requests[5m])), 1e-9)
           > 0.05
         for: 10m
         labels:
@@ -204,17 +207,19 @@ metrics:
         annotations:
           summary: High error rate on the cloudflared tunnel
           description: >-
-            More than 5% of proxied requests are failing for 10 minutes.
+            More than 5% of proxied requests are failing for 10 minutes on tunnel
+            {{ $labels.namespace }}/{{ $labels.service }}.
 
       - alert: CloudflaredHeartbeatRetries
-        expr: max(cloudflared_tunnel_timer_retries) > 3
+        expr: max by (namespace, service) (cloudflared_tunnel_timer_retries) > 3
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: cloudflared is accumulating unacknowledged heartbeats
           description: >-
-            The number of unacknowledged heartbeats has exceeded 3 for 10 minutes.
+            The number of unacknowledged heartbeats has exceeded 3 for 10 minutes on
+            tunnel {{ $labels.namespace }}/{{ $labels.service }}.
 
 # HTTP probes. They use /ready, which is only available when metrics are enabled.
 probes:

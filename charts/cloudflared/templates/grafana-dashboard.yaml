@@ -1,4 +1,19 @@
 {{- if .Values.grafana.dashboards.enabled }}
+{{- $dashboard := .Files.Get "dashboards/cloudflared.json" | fromJson }}
+{{- $_ := set $dashboard "uid" (include "cloudflared.dashboardUID" .) }}
+{{- $_ := set $dashboard "title" (include "cloudflared.dashboardTitle" .) }}
+{{- if .Values.metrics.serviceMonitor.enabled }}
+{{- /* With a ServiceMonitor, the Prometheus job label is the Service name. */}}
+{{- $job := printf "%s-metrics" (include "cloudflared.fullname" .) }}
+{{- range $variable := $dashboard.templating.list }}
+{{- if eq $variable.name "job" }}
+{{- $_ := set $variable "current" (dict "selected" true "text" (list $job) "value" (list $job)) }}
+{{- end }}
+{{- if eq $variable.name "namespace" }}
+{{- $_ := set $variable "current" (dict "selected" true "text" (list $.Release.Namespace) "value" (list $.Release.Namespace)) }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,6 +27,6 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
-  cloudflared.json: |-
-    {{- .Files.Get "dashboards/cloudflared.json" | nindent 4 }}
+  {{ include "cloudflared.dashboardUID" . }}.json: |-
+    {{- $dashboard | toPrettyJson | nindent 4 }}
 {{- end }}
