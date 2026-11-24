@@ -2,8 +2,8 @@ apiVersion: v2
 name: cloudflared
 description: Cloudflare Tunnel connector (cloudflared) with Prometheus metrics and a Grafana dashboard.
 type: application
-version: 0.1.5
-appVersion: "2026.11.1"
+version: 0.1.6
+appVersion: "2026.11.2"
 kubeVersion: ">=1.23.0-0"
 home: https://github.com/cloudflare/cloudflared
 icon: https://www.cloudflare.com/favicon.ico
